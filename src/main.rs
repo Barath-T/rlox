@@ -1,3 +1,62 @@
+mod lexer;
+mod utils;
+
+use lexer::{Scanner, Token};
+use std::{env, fs, io, io::Write, process};
+
 fn main() {
-    println!("Hello, world!");
+    let mut args: env::Args = env::args();
+    args.next();
+
+    // Global Error state
+    let mut had_err: bool = false;
+
+    match args.len() {
+        0 => run_prompt(&mut had_err),
+        1 => run_file(&args.next().unwrap(), &mut had_err),
+        _ => {
+            eprintln!("Usage: rlox [script]");
+            process::exit(64);
+        }
+    }
+    .expect("");
+}
+
+fn run_file(path: &str, had_err: &mut bool) -> Result<(), io::Error> {
+    let source: String = fs::read_to_string(path)?;
+
+    run(source, had_err);
+    if *had_err {
+        process::exit(65);
+    }
+    Ok(())
+}
+
+fn run_prompt(had_err: &mut bool) -> Result<(), io::Error> {
+    let mut prompt = String::new();
+
+    loop {
+        print!(">");
+
+        io::stdout().flush();
+
+        let nbytes: usize = io::stdin().read_line(&mut prompt)?;
+        if nbytes == 0 {
+            break;
+        }
+        run(prompt, had_err);
+        *had_err = false;
+
+        prompt = String::new();
+    }
+    Ok(())
+}
+
+fn run(source: String, had_err: &mut bool) {
+    let mut scanner: Scanner = Scanner::new(&source);
+    let tokens: &Vec<Token> = scanner.scan_tokens(had_err);
+
+    for token in tokens {
+        println!("{:?}", token);
+    }
 }
