@@ -49,20 +49,23 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
-pub struct Token<'a> {
+#[derive(Debug, Clone)]
+pub struct Token {
     token_type: TokenType,
-    lexeme: &'a str,
+    lexeme: String,
     line: u32,
 }
 
-impl<'a> Token<'a> {
-    pub fn new(token_type: TokenType, lexeme: &'a str, line: u32) -> Token<'a> {
+impl Token {
+    pub fn new(token_type: TokenType, lexeme: String, line: u32) -> Token {
         return Self {
             token_type,
             lexeme,
             line,
         };
+    }
+    pub fn get_lexeme(&self) -> String {
+        return self.lexeme.clone();
     }
     pub fn to_string(&self) -> String {
         return format!("{:?} {}", self.token_type, self.lexeme);

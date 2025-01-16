@@ -1,4 +1,5 @@
 mod lexer;
+mod parser;
 mod utils;
 
 use lexer::{Scanner, Token};
@@ -38,7 +39,10 @@ fn run_prompt(had_err: &mut bool) -> Result<(), io::Error> {
     loop {
         print!(">");
 
-        io::stdout().flush();
+        match io::stdout().flush() {
+            Ok(_) => (),
+            Err(err) => eprintln!("Error while flushing stdout: {}", err),
+        };
 
         let nbytes: usize = io::stdin().read_line(&mut prompt)?;
         if nbytes == 0 {

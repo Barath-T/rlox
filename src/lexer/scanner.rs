@@ -5,7 +5,7 @@ use crate::utils;
 
 pub struct Scanner<'a> {
     source: &'a str,
-    tokens: Vec<Token<'a>>,
+    tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: u32,
@@ -28,7 +28,8 @@ impl<'a> Scanner<'a> {
             self.scan_token(had_err);
         }
 
-        self.tokens.push(Token::new(TokenType::Eof, "", self.line));
+        self.tokens
+            .push(Token::new(TokenType::Eof, String::new(), self.line));
         &self.tokens
     }
 
@@ -212,7 +213,7 @@ impl<'a> Scanner<'a> {
     fn add_token(&mut self, token_type: TokenType) {
         let new_token: Token = Token::new(
             token_type,
-            &self.source[self.start..self.current],
+            String::from(&self.source[self.start..self.current]),
             self.line,
         );
         self.tokens.push(new_token);
