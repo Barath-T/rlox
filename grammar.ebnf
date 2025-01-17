@@ -1,3 +1,4 @@
+// Old
 expression -> literal | unary | binary | grouping ;
 
 
@@ -7,3 +8,13 @@ unary -> ( "-" | "!" ) expression ;
 binary -> expression operator expression ;
 operator -> "==" | "!=" | "<" | "<=" | ">" | ">=" | "+" | "-" | "*" | "/" ;
 
+// Improvised (added precedence and associativity)
+
+expression -> equality ;
+
+equality -> comparison (("!=" | "==") comparision)* ;
+comparision -> term ((">" | ">=" | "<=") term)* ;
+term -> factor (("+" | "-") factor)* ;
+factor -> unary (("*" | "/") unary)* ;
+unary -> ("!" | "-") unary | primary ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;

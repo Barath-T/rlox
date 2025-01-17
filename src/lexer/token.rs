@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -63,6 +63,9 @@ impl Token {
             lexeme,
             line,
         };
+    }
+    pub fn get_token_type(&self) -> &TokenType {
+        return &self.token_type;
     }
     pub fn get_lexeme(&self) -> String {
         return self.lexeme.clone();
