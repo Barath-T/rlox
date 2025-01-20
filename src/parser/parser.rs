@@ -1,30 +1,46 @@
 use super::{ast, ast::Expr};
 use crate::lexer::{Token, TokenType};
+use crate::utils;
 
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<Token>,
     current: usize,
+    had_err: &'a mut bool,
+}
+enum ParseError {
+    Bad { msg: String, token: Token },
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
-        return Self { tokens, current: 0 };
+impl<'a> Parser<'a> {
+    pub fn new(tokens: Vec<Token>, had_err: &'a mut bool) -> Parser<'a> {
+        return Self {
+            tokens,
+            current: 0,
+            had_err,
+        };
+    }
+
+    pub fn parse(&mut self) -> Option<Expr> {
+        match self.expression() {
+            Ok(expr) => Some(expr),
+            Err(_) => None,
+        }
     }
 
     //expression -> equality ;
-    fn expression(&mut self) -> Expr {
+    fn expression(&mut self) -> Result<Expr, ParseError> {
         return self.equality();
     }
 
     //equality -> comparison (("!=" | "==") comparison)* ;
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    fn equality(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.comparison()?;
 
         let types_to_match: Vec<TokenType> = vec![TokenType::BangEqual, TokenType::EqualEqual];
 
         while self.match_token_type(&types_to_match) {
             let operator: Token = self.previous().clone();
-            let right: Expr = self.comparison();
+            let right: Expr = self.comparison()?;
             expr = Expr::Binary(ast::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -32,12 +48,12 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
     //comparison -> term ((">" | ">=" | "<=") term)* ;
-    fn comparison(&mut self) -> Expr {
-        let mut expr = self.term();
+    fn comparison(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.term()?;
 
         let types_to_match: Vec<TokenType> = vec![
             TokenType::Greater,
@@ -48,7 +64,7 @@ impl Parser {
 
         while self.match_token_type(&types_to_match) {
             let operator: Token = self.previous().clone();
-            let right: Expr = self.term();
+            let right: Expr = self.term()?;
             expr = Expr::Binary(ast::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -56,18 +72,18 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
     //term -> factor (("+" | "-") factor)* ;
-    fn term(&mut self) -> Expr {
-        let mut expr = self.factor();
+    fn term(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.factor()?;
 
         let types_to_match: Vec<TokenType> = vec![TokenType::Plus, TokenType::Minus];
 
         while self.match_token_type(&types_to_match) {
             let operator: Token = self.previous().clone();
-            let right: Expr = self.factor();
+            let right: Expr = self.factor()?;
             expr = Expr::Binary(ast::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -75,18 +91,18 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
     //factor -> unary (("*" | "/") unary)* ;
-    fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.unary()?;
 
         let types_to_match: Vec<TokenType> = vec![TokenType::Star, TokenType::Slash];
 
         while self.match_token_type(&types_to_match) {
             let operator: Token = self.previous().clone();
-            let right: Expr = self.unary();
+            let right: Expr = self.unary()?;
             expr = Expr::Binary(ast::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -94,44 +110,54 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
     //unary -> ("!" | "-") unary | primary ;
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, ParseError> {
         let types_to_match: Vec<TokenType> = vec![TokenType::Bang, TokenType::Minus];
 
         if self.match_token_type(&types_to_match) {
             let operator: Token = self.previous().clone();
-            let right: Expr = self.unary();
+            let right: Expr = self.unary()?;
             let expr = Expr::Unary(ast::Unary {
                 operator: operator,
                 right: Box::new(right),
             });
-            return expr;
+            return Ok(expr);
         }
 
         return self.primary();
     }
 
     //primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    fn primary(&mut self) -> Expr {
-        match self.advance().get_token_type() {
+    fn primary(&mut self) -> Result<Expr, ParseError> {
+        let expr = match self.advance().get_token_type() {
             TokenType::False => Expr::Literal(ast::Literal::False),
             TokenType::True => Expr::Literal(ast::Literal::True),
             TokenType::Nil => Expr::Literal(ast::Literal::Nil),
             TokenType::String(string) => Expr::Literal(ast::Literal::String(string.clone())),
             TokenType::Number(number) => Expr::Literal(ast::Literal::Number(*number)),
             TokenType::LeftParen => {
-                let expr: Expr = self.expression();
-                self.consume(TokenType::RightParen, "Expect ')' after expression.");
-                return Expr::Grouping(ast::Grouping { expression: Box::new(expr) });
+                let expr: Expr = self.expression()?;
+                self.consume(
+                    TokenType::RightParen,
+                    String::from("Expect ')' after expression."),
+                )?;
+                Expr::Grouping(ast::Grouping {
+                    expression: Box::new(expr),
+                })
             }
-            _ => todo!(),
-        }
+            _ => self.error(self.peek().clone(), String::from("Expected expression!"))?,
+        };
+
+        return Ok(expr);
     }
-    fn consume(&self, token_type:TokenType, expect: &'static str){
-        todo!();
+    fn consume(&mut self, token_type: TokenType, message: String) -> Result<&Token, ParseError> {
+        if self.check_token_type(&token_type) {
+            return Ok(self.advance());
+        }
+        return self.error::<&Token>(self.peek().clone(), message);
     }
 
     fn match_token_type(&mut self, types: &Vec<TokenType>) -> bool {
@@ -165,5 +191,33 @@ impl Parser {
     }
     fn previous(&self) -> &Token {
         return &self.tokens[self.current - 1];
+    }
+    fn error<T>(&mut self, token: Token, msg: String) -> Result<T, ParseError> {
+        utils::parse_error(&token, &msg, self.had_err);
+
+        // panic!("{}: {}", msg, token.to_string());
+
+        return Err(ParseError::Bad { msg, token });
+    }
+    fn synchronize(&mut self) {
+        self.advance();
+        while !self.is_at_end() {
+            if *self.previous().get_token_type() == TokenType::Semicolon {
+                return;
+            }
+
+            match self.peek().get_token_type() {
+                TokenType::Class
+                | TokenType::Fun
+                | TokenType::Var
+                | TokenType::For
+                | TokenType::If
+                | TokenType::While
+                | TokenType::Print
+                | TokenType::Return => return,
+                _ => todo!(),
+            }
+            self.advance();
+        }
     }
 }

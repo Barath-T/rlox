@@ -96,7 +96,7 @@ impl<'a> Scanner<'a> {
 
             '"' => match self.string() {
                 Ok(string_literal) => self.add_token(TokenType::String(string_literal)),
-                Err(err_msg) => utils::error(self.line, err_msg, had_err),
+                Err(err_msg) => utils::lex_error(self.line, err_msg, had_err),
             },
 
             '0'..='9' => {
@@ -112,7 +112,7 @@ impl<'a> Scanner<'a> {
                 }
             }
 
-            _ => utils::error(self.line, "unexpected character.", had_err),
+            _ => utils::lex_error(self.line, "unexpected character.", had_err),
         }
     }
 

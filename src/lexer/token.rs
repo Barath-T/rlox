@@ -70,6 +70,9 @@ impl Token {
     pub fn get_lexeme(&self) -> String {
         return self.lexeme.clone();
     }
+    pub fn get_line(&self) -> u32 {
+        return self.line;
+    }
     pub fn to_string(&self) -> String {
         return format!("{:?} {}", self.token_type, self.lexeme);
     }
