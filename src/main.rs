@@ -1,9 +1,10 @@
+mod interpreter;
 mod lexer;
 mod parser;
 mod utils;
 
 use lexer::{Scanner, Token};
-use parser::{Parser, Expr, AstPrinter};
+use parser::{AstPrinter, Expr, Parser};
 use std::{env, fs, io, io::Write, process};
 
 fn main() {
@@ -61,16 +62,15 @@ fn run(source: String, had_err: &mut bool) {
     let mut scanner: Scanner = Scanner::new(&source);
     let tokens: &Vec<Token> = scanner.scan_tokens(had_err);
     let mut parser: Parser = Parser::new(tokens.clone(), had_err);
-    let expression: Option<Expr>  = parser.parse();
+    let expression: Option<Expr> = parser.parse();
 
     if *had_err {
         return;
     }
 
-    let myprinter: AstPrinter = AstPrinter{};
+    let myprinter: AstPrinter = AstPrinter {};
     match expression {
-    Some(e) => println!("{}", myprinter.print(&e)),
-    None=> println!("nothing"),
+        Some(e) => println!("{}", myprinter.print(&e)),
+        None => println!("nothing"),
     };
-
 }
