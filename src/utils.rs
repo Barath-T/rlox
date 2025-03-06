@@ -1,12 +1,12 @@
 use crate::lexer::{Token, TokenType};
 
-pub fn lex_error(line: u32, message: &str, had_err: &mut bool) {
-    report(line, "", message, had_err);
-}
-
 pub fn report(line: u32, location: &str, message: &str, had_err: &mut bool) {
     eprintln!("[line {}] Error {}: {}", line, location, message);
     *had_err = true;
+}
+
+pub fn lex_error(line: u32, message: &str, had_err: &mut bool) {
+    report(line, "", message, had_err);
 }
 
 pub fn parse_error(token: &Token, msg: &str, had_err: &mut bool) {
@@ -20,4 +20,8 @@ pub fn parse_error(token: &Token, msg: &str, had_err: &mut bool) {
             had_err,
         )
     }
+}
+
+pub fn runtime_error(token: &Token, msg: &str, had_runtime_err: &mut bool) {
+    report(token.get_line(), "", msg, had_runtime_err);
 }

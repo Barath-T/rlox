@@ -1,6 +1,13 @@
 use crate::lexer::{Token, TokenType};
 use crate::parser::{ast, Expr, Visitor};
+use crate::utils;
 
+pub enum RuntimeError {
+    // token , message
+    TypeError(Token, String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f32),
     String(String),
@@ -17,11 +24,40 @@ impl Value {
     }
 }
 
-pub struct Interpreter;
+pub struct Interpreter<'a> {
+    had_runtime_err: &'a mut bool,
+}
 
-impl Visitor<Expr, Value> for Interpreter {
-    fn visit(&self, production: &Expr) -> Value {
-        match production {
+impl<'a> Interpreter<'a> {
+    pub fn new(had_runtime_err: &'a mut bool) -> Interpreter<'a> {
+        return Interpreter { had_runtime_err };
+    }
+    pub fn interpret(&mut self, expr: Expr) {
+        match self.evaluate(expr) {
+            Ok(value) => println!("{:?}", value),
+            Err(err) => match err {
+                RuntimeError::TypeError(token, msg) => {
+                    utils::runtime_error(&token, &msg, self.had_runtime_err)
+                }
+            },
+        };
+    }
+    fn evaluate(&self, expr: Expr) -> Result<Value, RuntimeError> {
+        return expr.accept::<Result<Value, RuntimeError>>(self);
+    }
+
+    fn is_equal(l: Value, r: Value) -> bool {
+        return l == r;
+    }
+
+    fn error<T>(token: Token, msg: String) -> Result<T, RuntimeError> {
+        return Err(RuntimeError::TypeError(token, msg));
+    }
+}
+
+impl<'a> Visitor<Expr, Result<Value, RuntimeError>> for Interpreter<'a> {
+    fn visit(&self, production: &Expr) -> Result<Value, RuntimeError> {
+        let value: Value = match production {
             Expr::Literal(literal) => match literal {
                 ast::Literal::Number(number) => Value::Number(*number),
                 ast::Literal::String(string) => Value::String(string.to_string()),
@@ -30,49 +66,98 @@ impl Visitor<Expr, Value> for Interpreter {
                 ast::Literal::Nil => Value::Nil,
             },
 
-            Expr::Grouping(grouping) => self.evaluate(*grouping.expression.clone()),
+            Expr::Grouping(grouping) => self.evaluate(*grouping.expression.clone())?,
 
             Expr::Unary(unary) => {
-                let right: Value = self.evaluate(*unary.right.clone());
+                let right: Value = self.evaluate(*unary.right.clone())?;
 
                 match unary.operator.get_token_type() {
                     TokenType::Minus => match right {
                         Value::Number(number) => Value::Number(-number),
-                        _ => todo!(),
+                        _ => {
+                            return Self::error::<Value>(
+                                unary.operator.clone(),
+                                String::from("Operand must be a number."),
+                            )
+                        }
                     },
                     TokenType::Bang => Value::Boolean(!right.is_truthy()),
-                    _ => todo!(),
+                    _ => {
+                        return Self::error::<Value>(
+                            unary.operator.clone(),
+                            String::from("Operator is not unary."),
+                        )
+                    }
                 }
             }
 
             Expr::Binary(binary) => {
-                let left: Value = self.evaluate(*binary.left.clone());
-                let right: Value = self.evaluate(*binary.right.clone());
-                match (left, right) {
+                let left: Value = self.evaluate(*binary.left.clone())?;
+                let right: Value = self.evaluate(*binary.right.clone())?;
+
+                match (left.clone(), right.clone()) {
                     (Value::Number(l), Value::Number(r)) => {
                         match binary.operator.get_token_type() {
                             TokenType::Minus => Value::Number(l - r),
                             TokenType::Slash => Value::Number(l / r),
                             TokenType::Star => Value::Number(l * r),
                             TokenType::Plus => Value::Number(l + r),
-                            _ => todo!(),
-                        }
-                    },
-                    (Value::String(l), Value::String(r)) => {
-                        if *binary.operator.get_token_type() == TokenType::Plus {
-                            let mut concated_str: String = l.clone();
-                            concated_str.push_str(&r);
 
-                            Value::String(concated_str)
-                        } else {
-                            todo!()
+                            TokenType::Greater => Value::Boolean(l > r),
+                            TokenType::GreaterEqual => Value::Boolean(l >= r),
+                            TokenType::Less => Value::Boolean(l < r),
+                            TokenType::LessEqual => Value::Boolean(l <= r),
+
+                            TokenType::BangEqual => Value::Boolean(!Self::is_equal(left, right)),
+                            TokenType::EqualEqual => Value::Boolean(Self::is_equal(left, right)),
+
+                            _ => {
+                                return Self::error::<Value>(
+                                    binary.operator.clone(),
+                                    String::from("Operator cannot be applied on two numbers"),
+                                )
+                            }
+                        }
+                    }
+                    (Value::String(l), Value::String(r)) => {
+                        match binary.operator.get_token_type() {
+                            TokenType::Plus => {
+                                let mut concated_str: String = l.clone();
+                                concated_str.push_str(&r);
+
+                                Value::String(concated_str)
+                            }
+                            TokenType::BangEqual => Value::Boolean(!Self::is_equal(left, right)),
+                            TokenType::EqualEqual => Value::Boolean(Self::is_equal(left, right)),
+                            _ => {
+                                return Self::error::<Value>(
+                                    binary.operator.clone(),
+                                    String::from("Operator cannot be applied on two strings"),
+                                )
+                            }
+                        }
+                    }
+                    _ => match binary.operator.get_token_type() {
+                        TokenType::BangEqual => Value::Boolean(!Self::is_equal(left, right)),
+                        TokenType::EqualEqual => Value::Boolean(Self::is_equal(left, right)),
+                        TokenType::Plus => {
+                            return Self::error::<Value>(
+                                binary.operator.clone(),
+                                String::from("Operands must be two number or two strings."),
+                            )
+                        }
+                        _ => {
+                            return Self::error::<Value>(
+                                binary.operator.clone(),
+                                String::from("Operands must be a number."),
+                            )
                         }
                     },
-                    _ => todo!(),
                 }
             }
-            _ => todo!(),
-        }
+        };
+
+        return Ok(value);
     }
 }
 
@@ -97,9 +182,3 @@ impl Visitor<Expr, Value> for Interpreter {
 //        pub operator: Token,
 //    },
 //}
-
-impl Interpreter {
-    fn evaluate(&self, expr: Expr) -> Value {
-        return expr.accept::<Value>(self);
-    }
-}

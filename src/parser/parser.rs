@@ -190,6 +190,9 @@ impl<'a> Parser<'a> {
         return &self.tokens[self.current];
     }
     fn previous(&self) -> &Token {
+        if self.current <= 0 {
+            return &self.tokens[self.current];
+        }
         return &self.tokens[self.current - 1];
     }
     fn error<T>(&mut self, token: Token, msg: String) -> Result<T, ParseError> {
