@@ -57,7 +57,7 @@ impl Visitor<Expr, Value> for Interpreter {
                             TokenType::Plus => Value::Number(l + r),
                             _ => todo!(),
                         }
-                    }
+                    },
                     (Value::String(l), Value::String(r)) => {
                         if *binary.operator.get_token_type() == TokenType::Plus {
                             let mut concated_str: String = l.clone();
@@ -67,7 +67,7 @@ impl Visitor<Expr, Value> for Interpreter {
                         } else {
                             todo!()
                         }
-                    }
+                    },
                     _ => todo!(),
                 }
             }
