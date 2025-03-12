@@ -15,7 +15,18 @@ macro_rules! ast {
             }
         }
     };
+
 }
+ast!(
+pub enum Stmt {
+    Expression : struct {
+        pub expression: Box<Expr>,
+    },
+    Print : struct {
+        pub expression: Box<Expr>,
+    },
+}
+    );
 
 ast!(
 pub enum Expr {
@@ -40,6 +51,8 @@ pub enum Expr {
     },
 }
     );
+
+// to see macro expantion: rustc -Zunpretty=expanded src/parser/ast.rs , should use nightly
 
 pub trait Visitor<Production, T> {
     fn visit(&self, production: &Production) -> T;

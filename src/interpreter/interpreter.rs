@@ -1,5 +1,5 @@
 use crate::lexer::{Token, TokenType};
-use crate::parser::{ast, Expr, Visitor};
+use crate::parser::{ast, Expr, Stmt, Visitor};
 use crate::utils;
 
 pub enum RuntimeError {
@@ -32,16 +32,23 @@ impl<'a> Interpreter<'a> {
     pub fn new(had_runtime_err: &'a mut bool) -> Interpreter<'a> {
         return Interpreter { had_runtime_err };
     }
-    pub fn interpret(&mut self, expr: Expr) {
-        match self.evaluate(expr) {
-            Ok(value) => println!("{:?}", value),
-            Err(err) => match err {
-                RuntimeError::TypeError(token, msg) => {
-                    utils::runtime_error(&token, &msg, self.had_runtime_err)
-                }
-            },
-        };
+    pub fn interpret(&mut self, statements: Vec<Stmt>) {
+        for statement in statements {
+            match self.execute(&statement) {
+                Ok(_) => (),
+                Err(err) => match err {
+                    RuntimeError::TypeError(token, msg) => {
+                        utils::runtime_error(&token, &msg, self.had_runtime_err)
+                    }
+                },
+            }
+        }
     }
+
+    fn execute(&self, statement: &Stmt) -> Result<(), RuntimeError> {
+        return statement.accept::<Result<(), RuntimeError>>(self);
+    }
+
     fn evaluate(&self, expr: Expr) -> Result<Value, RuntimeError> {
         return expr.accept::<Result<Value, RuntimeError>>(self);
     }
@@ -158,6 +165,21 @@ impl<'a> Visitor<Expr, Result<Value, RuntimeError>> for Interpreter<'a> {
         };
 
         return Ok(value);
+    }
+}
+
+impl<'a> Visitor<Stmt, Result<(), RuntimeError>> for Interpreter<'a> {
+    fn visit(&self, statement: &Stmt) -> Result<(), RuntimeError> {
+        match statement {
+            Stmt::Expression(expression) => {
+                self.evaluate(*expression.expression.clone())?;
+            }
+            Stmt::Print(print) => {
+                let value: Value = self.evaluate(*print.expression.clone())?;
+                println!("{:?}", value);
+            }
+        };
+        return Ok(());
     }
 }
 

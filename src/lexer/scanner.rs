@@ -176,7 +176,7 @@ impl<'a> Scanner<'a> {
         // Consuming the closing ".
         self.advance();
 
-        return Ok(String::from(&self.source[self.start + 1..self.current]));
+        return Ok(String::from(&self.source[self.start + 1..self.current - 1]));
     }
 
     fn peek_next(&self) -> char {

@@ -1,4 +1,4 @@
-use super::{ast, ast::Expr};
+use super::{ast, ast::Expr, ast::Stmt};
 use crate::lexer::{Token, TokenType};
 use crate::utils;
 
@@ -20,11 +20,51 @@ impl<'a> Parser<'a> {
         };
     }
 
-    pub fn parse(&mut self) -> Option<Expr> {
-        match self.expression() {
-            Ok(expr) => Some(expr),
-            Err(_) => None,
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut statements: Vec<Stmt> = Vec::new();
+
+        while !self.is_at_end() {
+            match self.statement() {
+                Ok(stmt) => statements.push(stmt),
+                Err(_) => (),
+            }
         }
+        return statements;
+    }
+
+
+    // statement -> expr_stmt | print_stmt ;
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        let match_print: Vec<TokenType> = vec![TokenType::Print];
+
+        if self.match_token_type(&match_print) {
+            return self.print_statement();
+        }
+        return self.expression_statement();
+    }
+
+    // print_stmt -> "print" expression ";" ;
+    fn print_statement(&mut self) -> Result<Stmt, ParseError> {
+        let value: Expr = self.expression()?;
+        let _ = self.consume(
+            TokenType::Semicolon,
+            String::from("Expect ';' after value."),
+        );
+        return Ok(Stmt::Print(ast::Print {
+            expression: Box::new(value),
+        }));
+    }
+
+    // expr_stmt -> expression ";" ;
+    fn expression_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr: Expr = self.expression()?;
+        let _ = self.consume(
+            TokenType::Semicolon,
+            String::from("Expect ';' after expression."),
+        );
+        return Ok(Stmt::Expression(ast::Expression {
+            expression: Box::new(expr),
+        }));
     }
 
     //expression -> equality ;

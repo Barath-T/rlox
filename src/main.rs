@@ -5,7 +5,7 @@ mod utils;
 
 use interpreter::Interpreter;
 use lexer::{Scanner, Token};
-use parser::{AstPrinter, Expr, Parser};
+use parser::{AstPrinter, Expr, Parser, Stmt};
 use std::{env, fs, io, io::Write, process};
 
 fn main() {
@@ -44,7 +44,7 @@ fn run_prompt(had_err: &mut bool, had_runtime_err: &mut bool) -> Result<(), io::
     let mut prompt = String::new();
 
     loop {
-        print!(">");
+        print!(">>> ");
 
         match io::stdout().flush() {
             Ok(_) => (),
@@ -67,7 +67,7 @@ fn run(source: String, had_err: &mut bool, had_runtime_err: &mut bool) {
     let mut scanner: Scanner = Scanner::new(&source);
     let tokens: &Vec<Token> = scanner.scan_tokens(had_err);
     let mut parser: Parser = Parser::new(tokens.clone(), had_err);
-    let expression: Option<Expr> = parser.parse();
+    let statements: Vec<Stmt> = parser.parse();
 
     if *had_err {
         return;
@@ -76,11 +76,12 @@ fn run(source: String, had_err: &mut bool, had_runtime_err: &mut bool) {
     let myprinter: AstPrinter = AstPrinter {};
     let mut interpreter: Interpreter = Interpreter::new(had_runtime_err);
 
-    match expression {
-        Some(expr) => {
-            println!("{}", myprinter.print(&expr));
-            interpreter.interpret(expr);
-        }
-        None => println!("nothing"),
-    };
+    interpreter.interpret(statements);
+    // match expression {
+    //     Some(expr) => {
+    //         println!("{}", myprinter.print(&expr));
+    //         interpreter.interpret(expr);
+    //     }
+    //     None => println!("nothing"),
+    // };
 }
